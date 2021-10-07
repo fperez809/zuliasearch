@@ -956,6 +956,5 @@ public class StartStopTest {
 	public void shutdown() throws Exception {
 		TestHelper.stopNodes();
 		zuliaWorkPool.shutdown();
-		TestHelper.shutdownTestMongoInstance();
 	}
 }

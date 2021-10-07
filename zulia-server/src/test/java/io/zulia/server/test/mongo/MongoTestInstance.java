@@ -19,7 +19,7 @@ public class MongoTestInstance {
     private MongodProcess mongodProcess;
 
     public MongoTestInstance() {
-        configureAndStart();
+
     }
 
     public String getInstanceUrl() {
@@ -31,10 +31,12 @@ public class MongoTestInstance {
     }
 
     public void shutdown() {
-        mongodProcess.stop();
+        if(mongodProcess != null) {
+            mongodProcess.stop();
+        }
     }
 
-    private void configureAndStart() {
+    public void start() {
 
         try {
 

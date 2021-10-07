@@ -45,8 +45,11 @@ public class TestHelper {
 
         System.out.println("---------->CREATING MONGO TEST INSTANCE<------------");
 
+        mongoTestInstance = new MongoTestInstance();
+
         if(StringUtils.isEmpty(System.getProperty(MONGO_TEST_CONNECTION))) {
-            mongoTestInstance = new MongoTestInstance();
+
+            mongoTestInstance.start();
             mongoTestInstance.updateTestInstanceSystemProperty();
         }
 
