@@ -45,10 +45,9 @@ public class TestHelper {
 
         System.out.println("---------->CREATING MONGO TEST INSTANCE<------------");
 
-        mongoTestInstance = new MongoTestInstance();
+        if(isInMemoryMongoTestInstanceRequired()) {
 
-        if(StringUtils.isEmpty(System.getProperty(MONGO_TEST_CONNECTION))) {
-
+            mongoTestInstance = new MongoTestInstance();
             mongoTestInstance.start();
             mongoTestInstance.updateTestInstanceSystemProperty();
         }
@@ -84,11 +83,19 @@ public class TestHelper {
 
     private static String getMongoServer() {
 
-        String mongoServer = System.getProperty(MONGO_TEST_CONNECTION);
+        String mongoServer;
 
-        if (StringUtils.isEmpty(mongoServer)) {
+        if(isInMemoryMongoTestInstanceRequired()) {
+
             mongoServer = mongoTestInstance.getInstanceUrl();
-            System.out.println(mongoServer);
+
+        } else {
+
+            mongoServer = System.getProperty(MONGO_TEST_CONNECTION);
+
+            if(StringUtils.isEmpty(mongoServer)) {
+                mongoServer = MONGO_TEST_CONNECTION_DEFAULT;
+            }
         }
 
         return mongoServer;
@@ -160,6 +167,10 @@ public class TestHelper {
         } else {
             throw new IllegalArgumentException("A Mongo Instance URL was provided with an invalid format: " + mongoInstanceUrl);
         }
+    }
+
+    private static boolean isInMemoryMongoTestInstanceRequired() {
+        return StringUtils.isEmpty(System.getProperty(MONGO_TEST_CONNECTION));
     }
 
 }
