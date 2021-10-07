@@ -10,7 +10,9 @@ import io.zulia.server.config.ZuliaConfig;
 import io.zulia.server.config.cluster.MongoNodeService;
 import io.zulia.server.config.cluster.MongoServer;
 import io.zulia.server.node.ZuliaNode;
+import io.zulia.server.test.mongo.MongoTestInstance;
 import io.zulia.server.util.MongoProvider;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -20,104 +22,141 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TestHelper {
 
-	public static final String MONGO_TEST_CONNECTION = "mongoTestConnection";
-	public static final String TEST_CLUSTER_NAME = "zuliaTest";
+    public static final String MONGO_TEST_CONNECTION = "mongoTestConnection";
+    public static final String TEST_CLUSTER_NAME = "zuliaTest";
 
-	public static final String MONGO_TEST_CONNECTION_DEFAULT = "mongodb://127.0.0.1:27017";
+    public static final String MONGO_TEST_CONNECTION_DEFAULT = "mongodb://127.0.0.1:27017";
 
-	private static final MongoNodeService nodeService;
+    private static final Pattern MONGO_URL_PATTERN = Pattern.compile("([^:]+)://([^:]+):(\\d+)");
 
-	static {
+    private static final MongoNodeService nodeService;
 
-		LogUtil.init();
-		ZuliaD.setLuceneStatic();
+    private static MongoTestInstance mongoTestInstance;
 
-		String mongoServer = getMongoServer();
+    static {
 
-		MongoProvider.setMongoClient(MongoClients.create(mongoServer));
+        LogUtil.init();
+        ZuliaD.setLuceneStatic();
 
-		MongoProvider.getMongoClient().getDatabase(TEST_CLUSTER_NAME).drop();
+        System.out.println("---------->CREATING MONGO TEST INSTANCE<------------");
 
-		nodeService = new MongoNodeService(MongoProvider.getMongoClient(), TEST_CLUSTER_NAME);
+        if(StringUtils.isEmpty(System.getProperty(MONGO_TEST_CONNECTION))) {
+            mongoTestInstance = new MongoTestInstance();
+            mongoTestInstance.updateTestInstanceSystemProperty();
+        }
 
-		try {
-			Path dataPath = Paths.get("/tmp/zuliaTest");
+        System.out.println("---------->FINISHED CREATING MONGO TEST INSTANCE<------------");
 
-			if (Files.exists(dataPath)) {
-				Files.walk(dataPath).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-			}
-			Files.createDirectory(dataPath);
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+        String mongoServer = getMongoServer();
 
-	}
+        System.out.println("--->TestHelper - static - MONGO SERVER URL: " + mongoServer);
 
-	private static List<ZuliaNode> zuliaNodes = new ArrayList<>();
+        System.out.println("---------->CREATING MONGO CLIENT CONNECTION<------------");
+        MongoProvider.setMongoClient(MongoClients.create(mongoServer));
 
-	private static String getMongoServer() {
+        MongoProvider.getMongoClient().getDatabase(TEST_CLUSTER_NAME).drop();
 
-		String mongoServer = System.getProperty(MONGO_TEST_CONNECTION);
-		if (mongoServer == null) {
-			mongoServer = MONGO_TEST_CONNECTION_DEFAULT;
-			System.out.println(mongoServer);
-		}
+        System.out.println("---------->CREATING MONGO NODE SERVICE<------------");
+        nodeService = new MongoNodeService(MongoProvider.getMongoClient(), TEST_CLUSTER_NAME);
 
-		return mongoServer;
-	}
+        try {
+            Path dataPath = Paths.get("/tmp/zuliaTest");
 
-	public static ZuliaWorkPool createClient() throws Exception {
+            if (Files.exists(dataPath)) {
+                Files.walk(dataPath).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            }
+            Files.createDirectory(dataPath);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
-		ZuliaPoolConfig zuliaPoolConfig = new ZuliaPoolConfig();
-		for (ZuliaBase.Node node : nodeService.getNodes()) {
-			zuliaPoolConfig.addNode(node);
-		}
+    }
 
-		return new ZuliaWorkPool(zuliaPoolConfig);
+    private static List<ZuliaNode> zuliaNodes = new ArrayList<>();
 
-	}
+    private static String getMongoServer() {
 
-	public static void startNodes() throws Exception {
+        String mongoServer = System.getProperty(MONGO_TEST_CONNECTION);
 
-		int i = 0;
-		for (ZuliaBase.Node node : nodeService.getNodes()) {
-			ZuliaConfig zuliaConfig = new ZuliaConfig();
-			zuliaConfig.setServerAddress("localhost");
-			zuliaConfig.setCluster(true);
-			zuliaConfig.setClusterName(TEST_CLUSTER_NAME);
-			zuliaConfig.setMongoServers(Collections.singletonList(new MongoServer(getMongoServer(), 27017)));
-			zuliaConfig.setDataPath("/tmp/zuliaTest/node" + i);
-			zuliaConfig.setRestPort(node.getRestPort());
-			zuliaConfig.setServicePort(node.getServicePort());
-			i++;
+        if (StringUtils.isEmpty(mongoServer)) {
+            mongoServer = mongoTestInstance.getInstanceUrl();
+            System.out.println(mongoServer);
+        }
 
-			ZuliaNode zuliaNode = new ZuliaNode(zuliaConfig, nodeService);
-			zuliaNode.start(false);
+        return mongoServer;
+    }
 
-			zuliaNodes.add(zuliaNode);
-		}
+    public static ZuliaWorkPool createClient() throws Exception {
 
-	}
+        ZuliaPoolConfig zuliaPoolConfig = new ZuliaPoolConfig();
+        for (ZuliaBase.Node node : nodeService.getNodes()) {
+            zuliaPoolConfig.addNode(node);
+        }
 
-	public static void createNodes(int nodeCount) {
-		int port = 20000;
+        return new ZuliaWorkPool(zuliaPoolConfig);
 
-		for (int i = 0; i < nodeCount; i++) {
-			ZuliaBase.Node node = ZuliaBase.Node.newBuilder().setServerAddress("localhost").setServicePort(++port).setRestPort(++port).build();
-			nodeService.addNode(node);
-		}
-	}
+    }
 
-	public static void stopNodes() throws Exception {
+    public static void startNodes() throws Exception {
 
-		for (ZuliaNode zuliaNode : zuliaNodes) {
-			zuliaNode.shutdown();
-		}
+        int i = 0;
+        for (ZuliaBase.Node node : nodeService.getNodes()) {
+            ZuliaConfig zuliaConfig = new ZuliaConfig();
+            zuliaConfig.setServerAddress("localhost");
+            zuliaConfig.setCluster(true);
+            zuliaConfig.setClusterName(TEST_CLUSTER_NAME);
+            String mongoServerUrl = getMongoServer();
 
-	}
+            zuliaConfig.setMongoServers(Collections.singletonList(new MongoServer(mongoServerUrl, parseMongoPort(mongoServerUrl))));
+            zuliaConfig.setDataPath("/tmp/zuliaTest/node" + i);
+            zuliaConfig.setRestPort(node.getRestPort());
+            zuliaConfig.setServicePort(node.getServicePort());
+            i++;
+
+            ZuliaNode zuliaNode = new ZuliaNode(zuliaConfig, nodeService);
+            zuliaNode.start(false);
+
+            zuliaNodes.add(zuliaNode);
+        }
+
+    }
+
+    public static void createNodes(int nodeCount) {
+        int port = 20000;
+
+        for (int i = 0; i < nodeCount; i++) {
+            ZuliaBase.Node node = ZuliaBase.Node.newBuilder().setServerAddress("localhost").setServicePort(++port).setRestPort(++port).build();
+            nodeService.addNode(node);
+        }
+    }
+
+    public static void stopNodes() throws Exception {
+
+        for (ZuliaNode zuliaNode : zuliaNodes) {
+            zuliaNode.shutdown();
+        }
+
+    }
+
+    public static void shutdownTestMongoInstance() {
+        mongoTestInstance.shutdown();
+    }
+
+    private static Integer parseMongoPort(String mongoInstanceUrl) {
+        Matcher matcher = MONGO_URL_PATTERN.matcher(mongoInstanceUrl);
+
+        if (matcher.find()) {
+
+            return Integer.valueOf(matcher.group(3));
+
+        } else {
+            throw new IllegalArgumentException("A Mongo Instance URL was provided with an invalid format: " + mongoInstanceUrl);
+        }
+    }
 
 }

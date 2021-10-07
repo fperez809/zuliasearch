@@ -22,6 +22,7 @@ import io.zulia.message.ZuliaIndex.FacetAs.DateHandling;
 import io.zulia.message.ZuliaIndex.FieldConfig.FieldType;
 import io.zulia.message.ZuliaQuery;
 import io.zulia.message.ZuliaQuery.FacetCount;
+import io.zulia.server.test.mongo.MongoTestInstance;
 import io.zulia.util.ZuliaUtil;
 import org.bson.Document;
 import org.junit.jupiter.api.Assertions;
@@ -955,5 +956,6 @@ public class StartStopTest {
 	public void shutdown() throws Exception {
 		TestHelper.stopNodes();
 		zuliaWorkPool.shutdown();
+		TestHelper.shutdownTestMongoInstance();
 	}
 }
