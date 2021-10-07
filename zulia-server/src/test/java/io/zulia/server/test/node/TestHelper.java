@@ -43,8 +43,6 @@ public class TestHelper {
         LogUtil.init();
         ZuliaD.setLuceneStatic();
 
-        System.out.println("---------->CREATING MONGO TEST INSTANCE<------------");
-
         if(isInMemoryMongoTestInstanceRequired()) {
 
             mongoTestInstance = new MongoTestInstance();
@@ -52,18 +50,10 @@ public class TestHelper {
             mongoTestInstance.updateTestInstanceSystemProperty();
         }
 
-        System.out.println("---------->FINISHED CREATING MONGO TEST INSTANCE<------------");
-
         String mongoServer = getMongoServer();
-
-        System.out.println("--->TestHelper - static - MONGO SERVER URL: " + mongoServer);
-
-        System.out.println("---------->CREATING MONGO CLIENT CONNECTION<------------");
         MongoProvider.setMongoClient(MongoClients.create(mongoServer));
-
         MongoProvider.getMongoClient().getDatabase(TEST_CLUSTER_NAME).drop();
 
-        System.out.println("---------->CREATING MONGO NODE SERVICE<------------");
         nodeService = new MongoNodeService(MongoProvider.getMongoClient(), TEST_CLUSTER_NAME);
 
         try {
